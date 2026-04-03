@@ -1,0 +1,11 @@
+node_modules
+.env
+dist/
+build/
+*.log
+*.env
+*.pyc
+__pycache__/
+# Ignore IDE specific files
+.vscode/
+.idea/
