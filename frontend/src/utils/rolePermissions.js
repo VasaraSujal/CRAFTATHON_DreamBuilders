@@ -32,6 +32,7 @@ export const ROLE_DESCRIPTIONS = {
       'Filter and manage alerts',
       'Access network graph',
       'View logs and history',
+      'Access system settings',
     ],
   },
   Monitor: {
@@ -42,6 +43,7 @@ export const ROLE_DESCRIPTIONS = {
       'View real-time alerts',
       'Access network graph (view-only)',
       'View dashboard statistics',
+      'Access system settings',
     ],
   },
 };
@@ -89,7 +91,7 @@ export const hasPermission = (role, permission) => {
 export const canAccessPage = (role, page) => {
   const pageAccessMap = {
     users: ['Admin'],
-    settings: ['Admin'],
+    settings: ['Admin', 'Analyst', 'Monitor'],
     dashboard: ['Admin', 'Analyst', 'Monitor'],
     monitoring: ['Admin', 'Analyst', 'Monitor'],
     alerts: ['Admin', 'Analyst', 'Monitor'],

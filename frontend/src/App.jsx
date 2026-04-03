@@ -55,7 +55,7 @@ function App() {
         <Route path="network" element={<NetworkGraphPage />} />
         <Route path="logs" element={<ProtectedRoute requiredRoles={['Admin', 'Analyst']}><LogsPage /></ProtectedRoute>} />
         <Route path="simulation" element={<ProtectedRoute requiredRoles={['Admin']}><SimulationPage /></ProtectedRoute>} />
-        <Route path="settings" element={<ProtectedRoute requiredRoles={['Admin']}><Settings /></ProtectedRoute>} />
+        <Route path="settings" element={<Settings />} />
         <Route 
           path="users"
           element={
