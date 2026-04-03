@@ -1,8 +1,108 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const TrafficLog = require('../models/TrafficLog');
 const Alert = require('../models/Alert');
 
 const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
+
+const makeAuditSignature = (payload) => {
+    const secret = process.env.AUDIT_SECRET || process.env.JWT_SECRET || 'secure-audit-key';
+    return crypto
+        .createHmac('sha256', secret)
+        .update(JSON.stringify(payload))
+        .digest('hex');
+};
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const average = (items) => {
+    if (!items.length) return 0;
+    const total = items.reduce((sum, value) => sum + value, 0);
+    return total / items.length;
+};
+
+const detectFanOutSpike = async (sourceIp) => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
+
+    const [lastHourDestinations, historyRows] = await Promise.all([
+        TrafficLog.distinct('destination', {
+            source: sourceIp,
+            timestamp: { $gte: oneHourAgo },
+        }),
+        TrafficLog.find(
+            {
+                source: sourceIp,
+                timestamp: { $gte: twentyFiveHoursAgo, $lt: oneHourAgo },
+            },
+            { destination: 1, timestamp: 1 },
+        ).lean(),
+    ]);
+
+    const currentUnique = lastHourDestinations.length;
+
+    const perHourMap = new Map();
+    historyRows.forEach((row) => {
+        const ts = new Date(row.timestamp);
+        if (Number.isNaN(ts.getTime())) return;
+        const hourBucket = `${ts.getUTCFullYear()}-${ts.getUTCMonth()}-${ts.getUTCDate()}-${ts.getUTCHours()}`;
+        const bucket = perHourMap.get(hourBucket) || new Set();
+        if (row.destination) bucket.add(row.destination);
+        perHourMap.set(hourBucket, bucket);
+    });
+
+    const historicalHourlyUniques = [...perHourMap.values()].map((set) => set.size);
+    const usualHourly = Math.max(2, Math.round(average(historicalHourlyUniques) || 2));
+    const extraMessages = Math.max(0, currentUnique - usualHourly);
+
+    const triggered = currentUnique >= 100 && extraMessages >= 98;
+
+    return {
+        triggered,
+        currentUnique,
+        usualHourly,
+        extraMessages,
+    };
+};
+
+const calculateSecuritySignals = (trafficData, status, attackType) => {
+    const packetScore = clamp((trafficData.packetSize - 1000) / 30);
+    const freqScore = clamp((trafficData.frequency - 20) * 2);
+    const durationScore = clamp((trafficData.duration - 3) * 10);
+
+    const jammingRisk = clamp(packetScore * 0.35 + freqScore * 0.55 + durationScore * 0.1 + (attackType === 'DDoS' ? 18 : 0));
+    const spoofingRisk = clamp((trafficData.protocol === 'ICMP' ? 30 : 0) + durationScore * 0.5 + packetScore * 0.2 + (attackType === 'Spoofing' ? 28 : 0));
+    const intrusionRisk = clamp(durationScore * 0.55 + packetScore * 0.2 + freqScore * 0.25 + (attackType === 'Intrusion' ? 25 : 0));
+
+    const anomalyPenalty = status === 'Anomaly' ? 12 : 0;
+    const signalAvailability = clamp(100 - (jammingRisk * 0.65 + freqScore * 0.15 + anomalyPenalty));
+    const signalIntegrity = clamp(100 - (spoofingRisk * 0.55 + intrusionRisk * 0.3 + anomalyPenalty));
+
+    let threatCategory = 'None';
+    const activeThreats = [jammingRisk >= 65, spoofingRisk >= 65, intrusionRisk >= 65].filter(Boolean).length;
+
+    if (activeThreats > 1) {
+        threatCategory = 'Mixed';
+    } else if (jammingRisk >= spoofingRisk && jammingRisk >= intrusionRisk && jammingRisk >= 60) {
+        threatCategory = 'Jamming';
+    } else if (spoofingRisk >= intrusionRisk && spoofingRisk >= 60) {
+        threatCategory = 'Spoofing';
+    } else if (intrusionRisk >= 60) {
+        threatCategory = 'Intrusion';
+    }
+
+    return {
+        signalAvailability,
+        signalIntegrity,
+        jammingRisk,
+        spoofingRisk,
+        intrusionRisk,
+        threatCategory,
+    };
+};
 
 // Simulate real-time monitoring and detection
 const processTraffic = async (trafficData, options = {}) => {
@@ -33,43 +133,78 @@ const processTraffic = async (trafficData, options = {}) => {
         }
 
         const { status, attackType } = prediction;
+        const securitySignals = calculateSecuritySignals(normalized, status, attackType);
 
         const severity = getSeverity(status, attackType);
-        const shouldPersist = status === 'Anomaly';
+        const datasetSource = options.datasetSource || inferDatasetSource(options.sourceType);
 
-        // 2. Save only anomalous traffic to MongoDB; normal traffic remains local only.
-        const log = shouldPersist
-            ? await TrafficLog.create({
-                ...normalized,
-                status,
-                attackType,
-                severity,
-                modelType,
-                score,
-                sourceType: options.sourceType || 'realtime',
-                predictionSource,
-            })
-            : {
-                _id: makeLocalId(),
-                ...normalized,
-                status,
-                attackType,
-                severity,
-                modelType,
-                score,
-                sourceType: options.sourceType || 'realtime',
-                predictionSource,
-                persisted: false,
-                timestamp: new Date().toISOString(),
-            };
+        const payloadForStorage = {
+            ...normalized,
+            status,
+            attackType,
+            threatCategory: securitySignals.threatCategory,
+            severity,
+            modelType,
+            score,
+            sourceType: options.sourceType || 'realtime',
+            predictionSource,
+            datasetSource,
+            signalAvailability: securitySignals.signalAvailability,
+            signalIntegrity: securitySignals.signalIntegrity,
+            jammingRisk: securitySignals.jammingRisk,
+            spoofingRisk: securitySignals.spoofingRisk,
+            intrusionRisk: securitySignals.intrusionRisk,
+        };
 
-        // 3. Generate alert only for Medium/High/Critical anomalies
-        if (status === 'Anomaly' && ['Medium', 'High', 'Critical'].includes(severity)) {
+        payloadForStorage.auditSignature = makeAuditSignature({
+            source: payloadForStorage.source,
+            destination: payloadForStorage.destination,
+            timestamp: new Date().toISOString(),
+            status: payloadForStorage.status,
+            attackType: payloadForStorage.attackType,
+            threatCategory: payloadForStorage.threatCategory,
+            modelType: payloadForStorage.modelType,
+            signalAvailability: payloadForStorage.signalAvailability,
+            signalIntegrity: payloadForStorage.signalIntegrity,
+            datasetSource: payloadForStorage.datasetSource,
+        });
+
+        // Persist all metadata events for secure logging and post-operation audit.
+        const log = await TrafficLog.create(payloadForStorage);
+
+        const shouldAlert =
+            status === 'Anomaly' ||
+            securitySignals.jammingRisk >= 70 ||
+            securitySignals.spoofingRisk >= 70 ||
+            securitySignals.intrusionRisk >= 70 ||
+            securitySignals.signalAvailability < 55 ||
+            securitySignals.signalIntegrity < 55;
+
+        if (shouldAlert && ['Medium', 'High', 'Critical'].includes(severity)) {
             await Alert.create({
                 logId: log._id,
-                message: `Alert: ${attackType} detected from ${normalized.source} to ${normalized.destination}`,
+                message: `Alert: ${securitySignals.threatCategory !== 'None' ? securitySignals.threatCategory : attackType} risk from ${normalized.source} to ${normalized.destination}`,
                 severity,
             });
+        }
+
+        const fanOut = await detectFanOutSpike(normalized.source);
+        if (fanOut.triggered) {
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+            const existingSpecialAlert = await Alert.findOne({
+                timestamp: { $gte: oneHourAgo },
+                message: {
+                    $regex: new RegExp(`Special fan-out alert for source ${escapeRegex(normalized.source)}`, 'i'),
+                },
+            }).lean();
+
+            if (!existingSpecialAlert) {
+                await Alert.create({
+                    logId: log._id,
+                    severity: 'Critical',
+                    message: `Special fan-out alert for source ${normalized.source}: currently communicating with ${fanOut.currentUnique} unique destinations in the last hour. Usual hourly pattern is ${fanOut.usualHourly}. Suspicious increase of ${fanOut.extraMessages} additional communications detected.`,
+                });
+            }
         }
 
         return log;
@@ -84,6 +219,17 @@ const getSeverity = (status, attackType) => {
     if (attackType === 'DDoS') return 'Critical';
     if (attackType === 'Intrusion') return 'High';
     return 'Medium';
+};
+
+const inferDatasetSource = (sourceType = '') => {
+    const normalized = String(sourceType).toLowerCase();
+    if (normalized.includes('unsw')) return 'UNSW-NB15';
+    if (normalized.includes('nsl')) return 'NSL-KDD';
+    if (normalized.includes('cic')) return 'CICIDS';
+    if (normalized === 'simulation') return 'Simulation';
+    if (normalized === 'dataset') return 'RealtimeStream';
+    if (normalized === 'manual' || normalized === 'manualingest') return 'ManualIngest';
+    return 'RealtimeStream';
 };
 
 const normalizeTraffic = (trafficData) => {

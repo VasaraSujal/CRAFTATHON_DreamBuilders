@@ -36,6 +36,7 @@ async function generateRealtimeTraffic(options = {}) {
   return processTraffic(sample, {
     sourceType: 'dataset',
     modelType: options.modelType || 'isolation',
+    datasetSource: options.datasetSource || sample.datasetSource || 'RealtimeStream',
   });
 }
 

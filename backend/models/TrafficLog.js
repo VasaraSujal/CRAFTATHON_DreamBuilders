@@ -38,6 +38,11 @@ const trafficLogSchema = mongoose.Schema({
         type: String,
         default: 'None',
     },
+    threatCategory: {
+        type: String,
+        enum: ['None', 'Jamming', 'Spoofing', 'Intrusion', 'Mixed'],
+        default: 'None',
+    },
     severity: {
         type: String,
         enum: ['Low', 'Medium', 'High', 'Critical'],
@@ -61,6 +66,45 @@ const trafficLogSchema = mongoose.Schema({
         type: String,
         enum: ['python', 'fallback'],
         default: 'python',
+    },
+    datasetSource: {
+        type: String,
+        enum: ['RealtimeStream', 'UNSW-NB15', 'NSL-KDD', 'CICIDS', 'Simulation', 'ManualIngest'],
+        default: 'RealtimeStream',
+    },
+    signalAvailability: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 100,
+    },
+    signalIntegrity: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 100,
+    },
+    jammingRisk: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 0,
+    },
+    spoofingRisk: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 0,
+    },
+    intrusionRisk: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 0,
+    },
+    auditSignature: {
+        type: String,
+        default: '',
     },
 });
 
