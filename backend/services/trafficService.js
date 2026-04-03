@@ -2,6 +2,8 @@ const axios = require('axios');
 const TrafficLog = require('../models/TrafficLog');
 const Alert = require('../models/Alert');
 
+const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
 // Simulate real-time monitoring and detection
 const processTraffic = async (trafficData, options = {}) => {
     try {
@@ -32,24 +34,41 @@ const processTraffic = async (trafficData, options = {}) => {
 
         const { status, attackType } = prediction;
 
-        // 2. Save traffic log to MongoDB
-        const log = await TrafficLog.create({
-            ...normalized,
-            status,
-            attackType,
-            severity: getSeverity(status, attackType),
-            modelType,
-            score,
-            sourceType: options.sourceType || 'realtime',
-            predictionSource,
-        });
+        const severity = getSeverity(status, attackType);
+        const shouldPersist = status === 'Anomaly';
 
-        // 3. Generate Alert if Anomaly detected
-        if (status === 'Anomaly') {
+        // 2. Save only anomalous traffic to MongoDB; normal traffic remains local only.
+        const log = shouldPersist
+            ? await TrafficLog.create({
+                ...normalized,
+                status,
+                attackType,
+                severity,
+                modelType,
+                score,
+                sourceType: options.sourceType || 'realtime',
+                predictionSource,
+            })
+            : {
+                _id: makeLocalId(),
+                ...normalized,
+                status,
+                attackType,
+                severity,
+                modelType,
+                score,
+                sourceType: options.sourceType || 'realtime',
+                predictionSource,
+                persisted: false,
+                timestamp: new Date().toISOString(),
+            };
+
+        // 3. Generate alert only for Medium/High/Critical anomalies
+        if (status === 'Anomaly' && ['Medium', 'High', 'Critical'].includes(severity)) {
             await Alert.create({
                 logId: log._id,
                 message: `Alert: ${attackType} detected from ${normalized.source} to ${normalized.destination}`,
-                severity: log.severity
+                severity,
             });
         }
 
