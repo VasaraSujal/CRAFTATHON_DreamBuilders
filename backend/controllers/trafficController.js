@@ -9,28 +9,125 @@ const { processTraffic } = require('../services/trafficService');
 // @access  Private
 const getTrafficStats = async (req, res) => {
     try {
-        const totalTraffic = await TrafficLog.countDocuments();
-        const totalAlerts = await Alert.countDocuments();
-        
-        const alertsBySeverity = await Alert.aggregate([
-            { $group: { _id: '$severity', count: { $sum: 1 } } }
+        const [
+            totalTraffic,
+            totalAlerts,
+            alertsBySeverity,
+            trafficByStatus,
+            recentAlerts,
+            averageSignal,
+            threatCategoryCounts,
+            datasetCoverage,
+        ] = await Promise.all([
+            TrafficLog.countDocuments(),
+            Alert.countDocuments(),
+            Alert.aggregate([{ $group: { _id: '$severity', count: { $sum: 1 } } }]),
+            TrafficLog.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+            Alert.find().populate('logId').sort({ timestamp: -1 }).limit(5),
+            TrafficLog.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        avgAvailability: { $avg: '$signalAvailability' },
+                        avgIntegrity: { $avg: '$signalIntegrity' },
+                        avgJamming: { $avg: '$jammingRisk' },
+                        avgSpoofing: { $avg: '$spoofingRisk' },
+                        avgIntrusion: { $avg: '$intrusionRisk' },
+                    },
+                },
+            ]),
+            TrafficLog.aggregate([{ $group: { _id: '$threatCategory', count: { $sum: 1 } } }]),
+            TrafficLog.aggregate([{ $group: { _id: '$datasetSource', count: { $sum: 1 } } }]),
         ]);
-        
-        const trafficByStatus = await TrafficLog.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } }
-        ]);
-        
-        const recentAlerts = await Alert.find().populate('logId').sort({ timestamp: -1 }).limit(5);
+
+        const avg = averageSignal[0] || {
+            avgAvailability: 100,
+            avgIntegrity: 100,
+            avgJamming: 0,
+            avgSpoofing: 0,
+            avgIntrusion: 0,
+        };
 
         res.json({
             totalTraffic,
             totalAlerts,
             alertsBySeverity,
             trafficByStatus,
-            recentAlerts
+            recentAlerts,
+            signalHealth: {
+                availability: Math.round(avg.avgAvailability || 0),
+                integrity: Math.round(avg.avgIntegrity || 0),
+                jammingRisk: Math.round(avg.avgJamming || 0),
+                spoofingRisk: Math.round(avg.avgSpoofing || 0),
+                intrusionRisk: Math.round(avg.avgIntrusion || 0),
+            },
+            threatCategoryCounts,
+            datasetCoverage,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get signal availability and integrity status
+// @route   GET /api/signals/status
+// @access  Private
+const getSignalStatus = async (req, res) => {
+    try {
+        const recentWindow = Number(req.query.window || 200);
+
+        const [metrics] = await TrafficLog.aggregate([
+            { $sort: { timestamp: -1 } },
+            { $limit: recentWindow },
+            {
+                $group: {
+                    _id: null,
+                    avgAvailability: { $avg: '$signalAvailability' },
+                    avgIntegrity: { $avg: '$signalIntegrity' },
+                    maxJammingRisk: { $max: '$jammingRisk' },
+                    maxSpoofingRisk: { $max: '$spoofingRisk' },
+                    maxIntrusionRisk: { $max: '$intrusionRisk' },
+                    anomalies: {
+                        $sum: {
+                            $cond: [{ $eq: ['$status', 'Anomaly'] }, 1, 0],
+                        },
+                    },
+                    total: { $sum: 1 },
+                },
+            },
+        ]);
+
+        if (!metrics) {
+            return res.json({
+                availability: 100,
+                integrity: 100,
+                maxJammingRisk: 0,
+                maxSpoofingRisk: 0,
+                maxIntrusionRisk: 0,
+                anomalyRate: 0,
+                signalStatus: 'Nominal',
+            });
+        }
+
+        const anomalyRate = metrics.total ? Math.round((metrics.anomalies / metrics.total) * 100) : 0;
+        let signalStatus = 'Nominal';
+        if (metrics.avgAvailability < 60 || metrics.avgIntegrity < 60 || anomalyRate > 35) {
+            signalStatus = 'Critical';
+        } else if (metrics.avgAvailability < 75 || metrics.avgIntegrity < 75 || anomalyRate > 18) {
+            signalStatus = 'Degraded';
+        }
+
+        return res.json({
+            availability: Math.round(metrics.avgAvailability || 0),
+            integrity: Math.round(metrics.avgIntegrity || 0),
+            maxJammingRisk: Math.round(metrics.maxJammingRisk || 0),
+            maxSpoofingRisk: Math.round(metrics.maxSpoofingRisk || 0),
+            maxIntrusionRisk: Math.round(metrics.maxIntrusionRisk || 0),
+            anomalyRate,
+            signalStatus,
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
     }
 };
 
@@ -41,6 +138,7 @@ const getLiveTraffic = async (req, res) => {
     try {
         const log = await generateRealtimeTraffic({
             modelType: req.query.modelType || 'isolation',
+            datasetSource: req.query.datasetSource || 'RealtimeStream',
         });
 
         res.json(log);
@@ -129,6 +227,8 @@ const getTraffic = async (req, res) => {
             source,
             destination,
             modelType,
+            threatCategory,
+            datasetSource,
             from,
             to,
         } = req.query;
@@ -142,6 +242,8 @@ const getTraffic = async (req, res) => {
         if (source) query.source = source;
         if (destination) query.destination = destination;
         if (modelType) query.modelType = modelType;
+        if (threatCategory) query.threatCategory = threatCategory;
+        if (datasetSource) query.datasetSource = datasetSource;
         if (from || to) {
             query.timestamp = {};
             if (from) query.timestamp.$gte = new Date(from);
@@ -232,6 +334,7 @@ const ingestTraffic = async (req, res) => {
             const log = await processTraffic(item, {
                 sourceType: item.sourceType || 'dataset',
                 modelType: item.modelType || 'isolation',
+                datasetSource: item.datasetSource || 'ManualIngest',
             });
             logs.push(log);
         }
@@ -314,6 +417,7 @@ module.exports = {
     getLiveTraffic,
     getTrafficGraph,
     getTrafficStats,
+    getSignalStatus,
     ingestTraffic,
     resolveAlert,
     getAuditSummary,
