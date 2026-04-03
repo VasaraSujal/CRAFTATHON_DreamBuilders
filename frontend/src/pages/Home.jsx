@@ -53,6 +53,13 @@ export default function Home() {
 
   const roleLabel = useMemo(() => getRoleLabel(user?.role), [user]);
 
+  const highSeverityCount = useMemo(() => {
+    const items = stats.alertsBySeverity || [];
+    return items
+      .filter((item) => item._id === 'High' || item._id === 'Critical')
+      .reduce((sum, item) => sum + (item.count || 0), 0);
+  }, [stats.alertsBySeverity]);
+
   const onSimulate = async (type) => {
     try {
       await simulateTraffic(type);
@@ -76,15 +83,27 @@ export default function Home() {
     <main className="home-page">
       <Navbar />
 
-      <header className="topbar">
-        <div>
+      <header className="topbar home-hero">
+        <div className="home-hero-left">
           <p className="eyebrow">Secure Military Communication Monitoring System</p>
-          <h1>Operational Threat Dashboard</h1>
-        </div>
-        <div className="topbar-right">
-          <div className="identity-box">
-            <span>{user?.name}</span>
+          <h1 className="home-hero-title">Operational Threat Dashboard</h1>
+          <p className="home-hero-subtitle">
+            Real-time metadata surveillance with threat analysis, network visibility, and secure audit logging.
+          </p>
+
+          <div className="home-hero-badges">
+            <span className="hero-badge">Role: {roleLabel}</span>
+            <span className="hero-badge">Tracked Links: {stats.totalTraffic || 0}</span>
+            <span className="hero-badge">High Risk Alerts: {highSeverityCount}</span>
           </div>
+        </div>
+
+        <div className="topbar-right home-hero-right">
+          <div className="identity-box home-identity">
+            <span className="home-identity-name">{user?.name}</span>
+            <p>{roleLabel}</p>
+          </div>
+          <button type="button" className="btn-muted" onClick={loadAll}>Refresh</button>
         </div>
       </header>
 
@@ -93,16 +112,33 @@ export default function Home() {
       {loading ? (
         <div className="loading-box">Loading command center data...</div>
       ) : (
-        <>
+        <div className="home-content-stack">
           <SummaryCards stats={stats} />
-          <SimulationControls onSimulate={onSimulate} role={user?.role} />
+
+          <section className="home-feature-grid">
+            <SimulationControls onSimulate={onSimulate} role={user?.role} />
+            <section className="panel home-quick-brief">
+              <div className="panel-title-row">
+                <h2>Command Brief</h2>
+              </div>
+              <ul className="home-brief-list">
+                <li>Total alerts logged: {stats.totalAlerts || 0}</li>
+                <li>Recent alerts in queue: {(stats.recentAlerts || []).length}</li>
+                <li>Traffic records available: {(traffic || []).length}</li>
+                <li>Last role sync: {roleLabel} access policy active</li>
+              </ul>
+            </section>
+          </section>
+
           <Dashboard traffic={traffic} stats={stats} />
-          <div className="double-grid">
+
+          <div className="double-grid home-dual-panels">
             <Alerts alerts={alerts} />
             <NetworkGraph traffic={traffic} />
           </div>
+
           <Logs traffic={traffic} />
-        </>
+        </div>
       )}
     </main>
   );
