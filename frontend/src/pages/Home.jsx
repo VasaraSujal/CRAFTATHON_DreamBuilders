@@ -12,8 +12,8 @@ import { fetchAlerts, fetchStats, fetchTraffic, simulateTraffic } from '../servi
 const POLL_MS = 6000;
 
 function getRoleLabel(role) {
-  if (role === 'Monitor') return 'Operator';
-  return role || 'Operator';
+  if (role === 'Monitor') return 'Monitor';
+  return role || 'Monitor';
 }
 
 export default function Home() {

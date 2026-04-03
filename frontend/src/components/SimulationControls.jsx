@@ -44,7 +44,7 @@ export default function SimulationControls({ onSimulate, role }) {
 
       {!canSimulate ? (
         <p className="role-note">
-          Your role is {role || 'Operator'}: monitoring access only.
+          Your role is {role || 'Monitor'}: monitoring access only.
         </p>
       ) : null}
     </section>
