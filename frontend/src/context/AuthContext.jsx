@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { loginUser, registerUser, setAuthToken } from '../services/api';
+import { mockUsers } from '../data/mockData';
 
 const AuthContext = createContext(null);
 
@@ -27,7 +28,22 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   const login = async (email, password) => {
-    const data = await loginUser(email, password);
+    let data;
+    try {
+      data = await loginUser(email, password);
+    } catch {
+      const match = mockUsers.find((item) => item.email === email && item.password === password);
+      if (!match) {
+        throw new Error('Invalid email or password');
+      }
+      data = {
+        _id: match.id,
+        name: match.name,
+        email: match.email,
+        role: match.role,
+        token: `mock-token-${match.id}`,
+      };
+    }
     setAuthToken(data.token);
     setUser(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

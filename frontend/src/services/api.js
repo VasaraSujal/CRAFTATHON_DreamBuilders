@@ -29,6 +29,16 @@ export const fetchTraffic = async () => {
   return response.data;
 };
 
+export const fetchLiveTraffic = async () => {
+  const response = await api.get('/api/traffic/live');
+  return response.data;
+};
+
+export const fetchTrafficGraph = async () => {
+  const response = await api.get('/api/traffic/graph');
+  return response.data;
+};
+
 export const fetchAlerts = async () => {
   const response = await api.get('/api/alerts');
   return response.data;
@@ -41,6 +51,23 @@ export const fetchStats = async () => {
 
 export const simulateTraffic = async (type) => {
   const response = await api.post('/api/simulate', { type });
+  return response.data;
+};
+
+// User Management
+export const fetchUsers = async () => {
+  const response = await api.get('/api/users');
+  return response.data;
+};
+
+export const deleteUser = async (userId) => {
+  const response = await api.delete(`/api/users/${userId}`);
+  return response.data;
+};
+
+// Audit
+export const fetchAuditSummary = async () => {
+  const response = await api.get('/api/audit');
   return response.data;
 };
 
