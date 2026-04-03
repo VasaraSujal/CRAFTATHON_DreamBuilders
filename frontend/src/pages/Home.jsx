@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Navbar from '../components/Navbar.jsx';
 import Alerts from '../components/Alerts.jsx';
 import Dashboard from '../components/Dashboard.jsx';
 import Logs from '../components/Logs.jsx';
@@ -73,6 +74,8 @@ export default function Home() {
 
   return (
     <main className="home-page">
+      <Navbar />
+
       <header className="topbar">
         <div>
           <p className="eyebrow">Secure Military Communication Monitoring System</p>
@@ -81,9 +84,7 @@ export default function Home() {
         <div className="topbar-right">
           <div className="identity-box">
             <span>{user?.name}</span>
-            <p>{roleLabel}</p>
           </div>
-          <button className="btn" onClick={logout}>Logout</button>
         </div>
       </header>
 
