@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const roleOptions = ['Monitor', 'Operator', 'Analyst'];
+const roleOptions = ['Monitor', 'Analyst'];
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -49,7 +49,7 @@ export default function Register() {
         <div className="auth-hero-stats">
           <div>
             <strong>Access Levels</strong>
-            <span>Monitor, Operator, Analyst</span>
+            <span>Monitor, Analyst, Admin</span>
           </div>
           <div>
             <strong>Protected Data</strong>

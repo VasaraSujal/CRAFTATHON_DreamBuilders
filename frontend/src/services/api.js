@@ -60,6 +60,16 @@ export const fetchUsers = async () => {
   return response.data;
 };
 
+export const createUserByAdmin = async (payload) => {
+  const response = await api.post('/api/users/admin', payload);
+  return response.data;
+};
+
+export const updateUserRoleByAdmin = async (userId, role) => {
+  const response = await api.patch(`/api/users/${userId}/role`, { role });
+  return response.data;
+};
+
 export const deleteUser = async (userId) => {
   const response = await api.delete(`/api/users/${userId}`);
   return response.data;
