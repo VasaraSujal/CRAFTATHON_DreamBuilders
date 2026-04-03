@@ -1,6 +1,7 @@
 const TrafficLog = require('../models/TrafficLog');
 const Alert = require('../models/Alert');
 const { generateTraffic } = require('../services/simulationEngine');
+const { generateRealtimeTraffic } = require('../services/realtimeFeed');
 const { processTraffic } = require('../services/trafficService');
 
 // @desc    Get dashboard statistics
@@ -27,6 +28,86 @@ const getTrafficStats = async (req, res) => {
             alertsBySeverity,
             trafficByStatus,
             recentAlerts
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get one live traffic sample from the dataset stream
+// @route   GET /api/traffic/live
+// @access  Private
+const getLiveTraffic = async (req, res) => {
+    try {
+        const log = await generateRealtimeTraffic({
+            modelType: req.query.modelType || 'isolation',
+        });
+
+        res.json(log);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get network graph data
+// @route   GET /api/traffic/graph
+// @access  Private
+const getTrafficGraph = async (req, res) => {
+    try {
+        const recent = await TrafficLog.find({})
+            .sort({ timestamp: -1 })
+            .limit(80)
+            .lean();
+
+        const nodeMap = new Map();
+        const edgeMap = new Map();
+
+        recent.forEach((item, index) => {
+            const sourceId = `node-${String(item.source).replace(/\./g, '-')}`;
+            const destinationId = `node-${String(item.destination).replace(/\./g, '-')}`;
+
+            if (!nodeMap.has(sourceId)) {
+                nodeMap.set(sourceId, {
+                    id: sourceId,
+                    label: item.source,
+                    status: item.status,
+                    type: 'source',
+                    x: 80 + (index % 5) * 220,
+                    y: 60 + Math.floor(index / 5) * 110,
+                });
+            }
+
+            if (!nodeMap.has(destinationId)) {
+                nodeMap.set(destinationId, {
+                    id: destinationId,
+                    label: item.destination,
+                    status: item.status,
+                    type: 'destination',
+                    x: 150 + ((index + 2) % 5) * 220,
+                    y: 130 + Math.floor((index + 2) / 5) * 110,
+                });
+            }
+
+            const edgeId = `${sourceId}-${destinationId}`;
+            const existing = edgeMap.get(edgeId);
+
+            if (existing) {
+                existing.count += 1;
+                existing.status = item.status === 'Anomaly' ? 'Anomaly' : existing.status;
+            } else {
+                edgeMap.set(edgeId, {
+                    id: edgeId,
+                    source: sourceId,
+                    target: destinationId,
+                    status: item.status,
+                    count: 1,
+                });
+            }
+        });
+
+        res.json({
+            nodes: Array.from(nodeMap.values()),
+            edges: Array.from(edgeMap.values()),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -107,8 +188,12 @@ const getAlerts = async (req, res) => {
 // @access  Private
 const simulateAttack = async (req, res) => {
     try {
-        const { type } = req.body; // 'attack' or 'normal'
-        const log = await generateTraffic(type === 'attack', {
+        const { type } = req.body; // 'attack' / 'normal' / attack type name
+        const attackKinds = ['ddos', 'spoofing', 'intrusion'];
+        const normalizedType = String(type || 'attack').toLowerCase();
+        const shouldAttack = normalizedType === 'attack' || attackKinds.includes(normalizedType);
+
+        const log = await generateTraffic(shouldAttack, {
             sourceType: 'simulation',
             modelType: req.body.modelType || 'isolation',
         });
@@ -226,6 +311,8 @@ module.exports = {
     getTraffic,
     getAlerts,
     simulateAttack,
+    getLiveTraffic,
+    getTrafficGraph,
     getTrafficStats,
     ingestTraffic,
     resolveAlert,

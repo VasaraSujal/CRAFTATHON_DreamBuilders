@@ -4,6 +4,8 @@ const {
 	getTraffic,
 	getAlerts,
 	simulateAttack,
+	getLiveTraffic,
+	getTrafficGraph,
 	getTrafficStats,
 	ingestTraffic,
 	resolveAlert,
@@ -12,6 +14,8 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/traffic', protect, getTraffic);
+router.get('/traffic/live', protect, getLiveTraffic);
+router.get('/traffic/graph', protect, getTrafficGraph);
 router.post('/traffic/ingest', protect, ingestTraffic);
 router.get('/alerts', protect, getAlerts);
 router.patch('/alerts/:id/resolve', protect, authorize('Admin', 'Analyst'), resolveAlert);
