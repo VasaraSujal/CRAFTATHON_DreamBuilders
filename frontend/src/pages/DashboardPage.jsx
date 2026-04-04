@@ -48,12 +48,25 @@ export default function DashboardPage() {
     { name: 'Attack', value: stats.attackTraffic },
   ];
 
-  if (!trafficSeries.length) {
+  if (loading && !trafficSeries.length) {
     return (
       <div className="stats-grid">
         <SkeletonPanel />
         <SkeletonPanel />
         <SkeletonPanel />
+      </div>
+    );
+  }
+
+  if (!trafficSeries.length) {
+    return (
+      <div className="page-stack">
+        <section className="panel">
+          <h3>No traffic data yet</h3>
+          <p style={{ color: 'var(--txt-dim)', marginTop: 8 }}>
+            The dashboard is connected, but MongoDB does not have enough traffic history to draw the chart yet.
+          </p>
+        </section>
       </div>
     );
   }

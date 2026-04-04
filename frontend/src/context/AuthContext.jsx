@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { loginUser, registerUser, setAuthToken } from '../services/api';
-import { mockUsers } from '../data/mockData';
+import {
+  loginUser,
+  registerUser,
+  loginUserMfa,
+  refreshSession as refreshSessionApi,
+  logoutSession as logoutSessionApi,
+  setAuthToken,
+} from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -22,51 +28,84 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     return storedUser;
   });
+  const [mfaChallenge, setMfaChallenge] = useState(null);
+
+  const finalizeSession = (data) => {
+    setAuthToken(data.token);
+    setUser(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  };
 
   useEffect(() => {
     setAuthToken(user?.token);
   }, [user]);
 
-  const login = async (email, password) => {
-    let data;
-    try {
-      data = await loginUser(email, password);
-    } catch {
-      const match = mockUsers.find((item) => item.email === email && item.password === password);
-      if (!match) {
-        throw new Error('Invalid email or password');
+  useEffect(() => {
+    const reviveSession = async () => {
+      try {
+        const refreshed = await refreshSessionApi();
+        finalizeSession(refreshed);
+      } catch {
+        // Keep existing session if refresh cookies are unavailable; the interceptor will still retry requests.
       }
-      data = {
-        _id: match.id,
-        name: match.name,
-        email: match.email,
-        role: match.role,
-        token: `mock-token-${match.id}`,
-      };
+    };
+
+    reviveSession();
+  }, []);
+
+  const login = async (email, password) => {
+    const data = await loginUser(email, password);
+    if (data?.mfaRequired) {
+      setMfaChallenge({ mfaToken: data.mfaToken, email });
+      return data;
     }
+
     setAuthToken(data.token);
     setUser(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return data;
+  };
+
+  const completeMfaLogin = async (code) => {
+    if (!mfaChallenge?.mfaToken) {
+      throw new Error('No MFA challenge is active');
+    }
+
+    const data = await loginUserMfa({ mfaToken: mfaChallenge.mfaToken, code });
+    finalizeSession(data);
+    setMfaChallenge(null);
+    return data;
+  };
+
+  const refreshSession = async () => {
+    const data = await refreshSessionApi();
+    finalizeSession(data);
     return data;
   };
 
   const register = async (payload) => {
     const data = await registerUser(payload);
-    setAuthToken(data.token);
-    setUser(data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (data?.token) {
+      finalizeSession(data);
+    }
     return data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await logoutSessionApi();
+    } catch {
+      // ignore logout network issues
+    }
     setUser(null);
     setAuthToken(null);
     localStorage.removeItem(STORAGE_KEY);
+    setMfaChallenge(null);
   };
 
   const value = useMemo(
-    () => ({ user, login, register, logout }),
-    [user]
+    () => ({ user, login, register, logout, completeMfaLogin, refreshSession, mfaChallenge }),
+    [user, mfaChallenge]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

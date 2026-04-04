@@ -2,8 +2,17 @@ import React, { useMemo, useState } from 'react';
 import { useAppData } from '../context/AppDataContext.jsx';
 
 export default function AlertsPage() {
-  const { recentAlerts } = useAppData();
+  const { recentAlerts, alerts } = useAppData();
   const [selectedSeverity, setSelectedSeverity] = useState('All');
+
+  const sourceAlerts = recentAlerts.length ? recentAlerts : alerts.map((item) => ({
+    id: item._id,
+    message: item.message,
+    severity: item.severity,
+    timestamp: item.timestamp,
+    source: item.logId?.source || 'Unknown',
+    destination: item.logId?.destination || 'Unknown',
+  }));
 
   const severityColor = (severity) => {
     if (severity === 'Critical') return '#ff4444';
@@ -13,15 +22,15 @@ export default function AlertsPage() {
   };
 
   const filteredAlerts = useMemo(() => {
-    if (selectedSeverity === 'All') return recentAlerts;
-    return recentAlerts.filter((alert) => alert.severity === selectedSeverity);
-  }, [recentAlerts, selectedSeverity]);
+    if (selectedSeverity === 'All') return sourceAlerts;
+    return sourceAlerts.filter((alert) => alert.severity === selectedSeverity);
+  }, [sourceAlerts, selectedSeverity]);
 
   const countBySeverity = useMemo(() => ({
-    Critical: recentAlerts.filter((a) => a.severity === 'Critical').length,
-    High: recentAlerts.filter((a) => a.severity === 'High').length,
-    Medium: recentAlerts.filter((a) => a.severity === 'Medium').length,
-  }), [recentAlerts]);
+    Critical: sourceAlerts.filter((a) => a.severity === 'Critical').length,
+    High: sourceAlerts.filter((a) => a.severity === 'High').length,
+    Medium: sourceAlerts.filter((a) => a.severity === 'Medium').length,
+  }), [sourceAlerts]);
 
   return (
     <div className="page-stack alerts-shell">

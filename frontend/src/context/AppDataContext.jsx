@@ -15,6 +15,7 @@ const makeId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36)
 
 const SETTINGS_KEY = 'appSettings';
 const LOCAL_TRAFFIC_KEY = 'realtimeLocalTraffic';
+const HISTORY_WINDOW_HOURS = 48;
 
 function loadStoredTraffic() {
   try {
@@ -46,7 +47,8 @@ export function AppDataProvider({ children }) {
   const [statsApi, setStatsApi] = useState(null);
   const [signalStatusApi, setSignalStatusApi] = useState(null);
   const [users, setUsers] = useState([]);
-  const [isTrackingLive, setIsTrackingLive] = useState(true);
+  const [isTrackingLive, setIsTrackingLive] = useState(false);
+  const [trackingStartedAt, setTrackingStartedAt] = useState(null);
   const [recentAlerts, setRecentAlerts] = useState([]);
   const [settings, setSettings] = useState(() => {
     try {
@@ -65,7 +67,7 @@ export function AppDataProvider({ children }) {
     };
   });
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -76,10 +78,40 @@ export function AppDataProvider({ children }) {
     return rawAlerts.filter((item) => severityRank(item.severity) >= settings.alertThreshold);
   }, [rawAlerts, settings.alertThreshold]);
 
+  const normalizeThreatCategory = (item) => {
+    if (['Jamming', 'Spoofing', 'Intrusion', 'Mixed'].includes(item?.threatCategory)) {
+      return item.threatCategory;
+    }
+
+    if (item?.attackType === 'DDoS') return 'Jamming';
+    if (item?.attackType === 'Spoofing') return 'Spoofing';
+    if (item?.attackType === 'Intrusion') return 'Intrusion';
+    return 'Intrusion';
+  };
+
+  const threatCategoryCounts = useMemo(() => {
+    const counts = logs.reduce((acc, item) => {
+      const key = normalizeThreatCategory(item);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts).map(([key, count]) => ({ _id: key, count }));
+  }, [logs]);
+
+  const datasetCoverage = useMemo(() => {
+    const counts = logs.reduce((acc, item) => {
+      const key = item?.datasetSource || 'RealtimeStream';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts).map(([key, count]) => ({ _id: key, count }));
+  }, [logs]);
+
   const stats = useMemo(() => {
-    const totalTraffic = statsApi?.totalTraffic ?? logs.length;
-    const anomalies = statsApi?.trafficByStatus?.find((x) => x._id === 'Anomaly')?.count
-      ?? logs.filter((item) => item.status === 'Anomaly').length;
+    const totalTraffic = logs.length;
+    const anomalies = logs.filter((item) => item.status === 'Anomaly').length;
 
     const activeNodes = new Set(logs.flatMap((item) => [item.source, item.destination])).size;
 
@@ -107,10 +139,10 @@ export function AppDataProvider({ children }) {
       },
       signalStatus: signalStatusApi?.signalStatus || 'Nominal',
       anomalyRate: signalStatusApi?.anomalyRate ?? attackPercent,
-      threatCategoryCounts: statsApi?.threatCategoryCounts || [],
-      datasetCoverage: statsApi?.datasetCoverage || [],
+      threatCategoryCounts,
+      datasetCoverage,
     };
-  }, [logs, signalStatusApi, statsApi, trafficSeries]);
+  }, [logs, signalStatusApi, trafficSeries, threatCategoryCounts, datasetCoverage]);
 
   const pushNotification = (message, severity = 'Medium') => {
     const id = makeId('ntf');
@@ -157,23 +189,40 @@ export function AppDataProvider({ children }) {
       return;
     }
 
-    if (!isTrackingLive) return; // Skip refresh if tracking paused
-
     if (!silent) {
       setLoading(true);
     }
 
     try {
+      const windowStart = isTrackingLive
+        ? (trackingStartedAt || new Date())
+        : new Date(Date.now() - HISTORY_WINDOW_HOURS * 60 * 60 * 1000);
+
+      if (isTrackingLive && !trackingStartedAt) {
+        setTrackingStartedAt(windowStart);
+      }
+
       const [liveRow, alertRows, statsRows, signalRows, historyRows] = await Promise.all([
-        fetchLiveTraffic(),
+        isTrackingLive ? fetchLiveTraffic() : Promise.resolve(null),
         fetchAlerts(),
         fetchStats(),
         fetchSignalStatus(),
-        fetchTraffic({ limit: 'all' }),
+        fetchTraffic({ limit: 'all', from: windowStart.toISOString() }),
       ]);
 
       setError('');
+      const backendAlerts = (alertRows || []).map((alert) => ({
+        id: alert._id,
+        message: alert.message,
+        severity: alert.severity,
+        timestamp: alert.timestamp,
+        source: alert.logId?.source || alert.source || 'Unknown',
+        destination: alert.logId?.destination || alert.destination || 'Unknown',
+        resolved: alert.resolved,
+      }));
+
       setRawAlerts(alertRows || []);
+      setRecentAlerts(backendAlerts.slice(0, 10));
       setStatsApi(statsRows || null);
       setSignalStatusApi(signalRows || null);
       const fullHistory = historyRows || [];
@@ -187,11 +236,15 @@ export function AppDataProvider({ children }) {
         if (liveRow.status === 'Anomaly') {
           const severity = liveRow.severity || 'Medium';
           const message = liveRow.attackType ? `${liveRow.attackType} detected from ${liveRow.source}` : 'Anomaly detected';
-          // Add to persistent alert panel instead of temporary notification
-          setRecentAlerts((prev) => [
-            { id: liveRow._id, message, severity, timestamp: new Date(), source: liveRow.source, destination: liveRow.destination },
-            ...prev,
-          ].slice(0, 10));
+          setRecentAlerts((prev) => {
+            const next = [
+              { id: liveRow._id, message, severity, timestamp: new Date(), source: liveRow.source, destination: liveRow.destination },
+              ...prev,
+            ];
+
+            const unique = Array.from(new Map(next.map((item) => [item.id, item])).values());
+            return unique.slice(0, 10);
+          });
           pushNotification(message, severity);
         }
       }
@@ -206,7 +259,7 @@ export function AppDataProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [persistLocalTraffic, rebuildSeries]);
+  }, [user?.token, isTrackingLive, trackingStartedAt, persistLocalTraffic, rebuildSeries]);
 
   const runSimulation = useCallback(async (type) => {
     await simulateTraffic(type);
@@ -247,6 +300,22 @@ export function AppDataProvider({ children }) {
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
   };
 
+  const toggleTracking = useCallback((next) => {
+    setIsTrackingLive((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : Boolean(next);
+
+      if (resolved && !prev) {
+        setTrackingStartedAt(new Date());
+      }
+
+      if (!resolved && prev) {
+        setTrackingStartedAt(null);
+      }
+
+      return resolved;
+    });
+  }, []);
+
   const value = {
     trafficSeries,
     liveTraffic,
@@ -266,7 +335,7 @@ export function AppDataProvider({ children }) {
     deleteUser,
     updateUserRole,
     isTrackingLive,
-    setIsTrackingLive,
+    setIsTrackingLive: toggleTracking,
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
