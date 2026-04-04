@@ -3,7 +3,9 @@ import { useAuth } from '../context/AuthContext.jsx';
 import {
   createUserByAdmin,
   deleteUser,
+  fetchPendingUsers,
   fetchUsers,
+  updateUserApprovalByAdmin,
   updateUserRoleByAdmin,
 } from '../services/api.js';
 import { ROLE_DESCRIPTIONS } from '../utils/rolePermissions.js';
@@ -11,6 +13,7 @@ import { ROLE_DESCRIPTIONS } from '../utils/rolePermissions.js';
 export default function Users() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -27,8 +30,12 @@ export default function Users() {
     setLoading(true);
     setError('');
     try {
-      const rows = await fetchUsers();
+      const [rows, pending] = await Promise.all([
+        fetchUsers(),
+        fetchPendingUsers(),
+      ]);
       setUsers(rows || []);
+      setPendingUsers(pending || []);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load users');
     } finally {
@@ -43,6 +50,7 @@ export default function Users() {
   }, [user?.role]);
 
   const sortedUsers = useMemo(() => users, [users]);
+  const sortedPendingUsers = useMemo(() => pendingUsers, [pendingUsers]);
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -86,6 +94,18 @@ export default function Users() {
     }
   };
 
+  const handleApproval = async (userId, status) => {
+    setError('');
+    setSuccess('');
+    try {
+      await updateUserApprovalByAdmin(userId, status);
+      setSuccess(status === 'active' ? 'User approved successfully' : 'User rejected successfully');
+      await loadUsers();
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to update approval status');
+    }
+  };
+
   if (user?.role !== 'Admin') {
     return (
       <main className="panel">
@@ -114,6 +134,66 @@ export default function Users() {
               </ul>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-title-row" style={{ marginBottom: 14 }}>
+          <div>
+            <h3>Pending Approval Requests</h3>
+            <span style={{ color: 'var(--txt-dim)', fontSize: 13 }}>
+              New registrations require Admin approval before first login.
+            </span>
+          </div>
+          <div className="pending-badge">{sortedPendingUsers.length} Pending</div>
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Requested Role</th>
+                <th>Requested At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedPendingUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--txt-dim)' }}>
+                    No pending requests.
+                  </td>
+                </tr>
+              ) : (
+                sortedPendingUsers.map((u) => (
+                  <tr key={u._id || u.id}>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+                    <td>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
+                    <td>
+                      <div className="pending-actions">
+                        <button
+                          className="btn-primary"
+                          onClick={() => handleApproval(u._id || u.id, 'active')}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn-danger"
+                          onClick={() => handleApproval(u._id || u.id, 'rejected')}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -162,10 +242,10 @@ export default function Users() {
                 className="input"
                 type="password"
                 required
-                minLength={6}
+                minLength={10}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 10 characters"
               />
             </label>
 
