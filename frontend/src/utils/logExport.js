@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { getThreatCategory } from './trafficDisplay.js';
 
 const TIME_FORMAT = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
@@ -76,7 +77,7 @@ export function createLogsPdf(rows, details = {}) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
   const contentWidth = pageWidth - margin * 2;
-  const columnWidths = [42, 44, 44, 34, 30, 72];
+  const columnWidths = [38, 34, 34, 22, 24, 24, 22, 20, 46];
 
   let y = margin;
 
@@ -164,7 +165,7 @@ export function createLogsPdf(rows, details = {}) {
 
   drawTopCommunicators();
 
-  const headers = ['Time', 'Source', 'Destination', 'Status', 'Severity', 'Attack Type'];
+  const headers = ['Time', 'Source', 'Destination', 'Status', 'Threat', 'Avail', 'Integrity', 'Severity', 'Attack Type'];
   const rowHeight = 8;
 
   const drawHeader = () => {
@@ -200,6 +201,9 @@ export function createLogsPdf(rows, details = {}) {
       row.source || '-',
       row.destination || '-',
       row.status || '-',
+      getThreatCategory(row),
+      row.signalAvailability ?? '-',
+      row.signalIntegrity ?? '-',
       row.severity || '-',
       row.attackType || 'None',
     ];
