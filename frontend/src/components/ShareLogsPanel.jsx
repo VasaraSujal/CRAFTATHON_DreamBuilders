@@ -22,6 +22,10 @@ export default function ShareLogsPanel({ open, logs, onClose }) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
+  const openPicker = (event) => {
+    event.currentTarget.showPicker?.();
+  };
+
   useEffect(() => {
     if (!open) {
       setStatus('');
@@ -141,12 +145,36 @@ export default function ShareLogsPanel({ open, logs, onClose }) {
 
         <label className="setting-item">
           <span>Start date and time</span>
-          <input className="input" type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} />
+          <div className="date-input-wrap">
+            <input
+              className="input"
+              type="datetime-local"
+              value={startAt}
+              onChange={(event) => setStartAt(event.target.value)}
+              onFocus={openPicker}
+              onClick={openPicker}
+            />
+            <button type="button" className="btn-muted picker-btn" onClick={(event) => event.currentTarget.previousElementSibling?.showPicker?.()}>
+              Calendar
+            </button>
+          </div>
         </label>
 
         <label className="setting-item">
           <span>End date and time</span>
-          <input className="input" type="datetime-local" value={endAt} onChange={(event) => setEndAt(event.target.value)} />
+          <div className="date-input-wrap">
+            <input
+              className="input"
+              type="datetime-local"
+              value={endAt}
+              onChange={(event) => setEndAt(event.target.value)}
+              onFocus={openPicker}
+              onClick={openPicker}
+            />
+            <button type="button" className="btn-muted picker-btn" onClick={(event) => event.currentTarget.previousElementSibling?.showPicker?.()}>
+              Calendar
+            </button>
+          </div>
         </label>
       </div>
 
