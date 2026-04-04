@@ -24,8 +24,8 @@ export const registerUser = async (payload) => {
   return response.data;
 };
 
-export const fetchTraffic = async () => {
-  const response = await api.get('/api/traffic');
+export const fetchTraffic = async (params = {}) => {
+  const response = await api.get('/api/traffic', { params });
   return response.data;
 };
 
