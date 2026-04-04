@@ -12,6 +12,8 @@ export default function Register() {
   const [role, setRole] = useState('Monitor');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -39,81 +41,157 @@ export default function Register() {
     <main className="auth-shell">
       <div className="auth-grid-bg" />
 
-      <section className="auth-card auth-hero auth-hero-register">
-        <p className="sidebar-kicker">Secure Operations</p>
-        <h1>Create Monitoring Account</h1>
+      <section className="auth-card auth-hero">
+        <div className="auth-hero-badge">CREATE ACCOUNT</div>
+        <h1>Set Up Your Monitoring Profile</h1>
         <p className="auth-copy">
-          Register a user account to access the secure monitoring dashboard, alerts, and live traffic tools.
+          Gain access to enterprise-grade threat intelligence, real-time alerts, and advanced network analytics. Start in minutes.
         </p>
 
         <div className="auth-hero-stats">
-          <div>
-            <strong>Access Levels</strong>
-            <span>Monitor, Analyst, Admin</span>
+          <div className="stat-card">
+            <strong>Role-Based Access</strong>
+            <span>Monitor and Analyst roles</span>
           </div>
-          <div>
-            <strong>Protected Data</strong>
-            <span>Real-time threat feed</span>
+          <div className="stat-card">
+            <strong>Enterprise Security</strong>
+            <span>Military-grade encryption</span>
           </div>
-          <div>
-            <strong>Styled for Theme</strong>
-            <span>Matches app console UI</span>
+          <div className="stat-card">
+            <strong>Instant Setup</strong>
+            <span>Start monitoring immediately</span>
           </div>
+        </div>
+
+        <div className="auth-hero-footer">
+          <p className="auth-footer-text">Already have an account? Sign in instead</p>
         </div>
       </section>
 
-      <section className="auth-card auth-form-card">
-        <div className="auth-header-row">
-          <div>
-            <p className="eyebrow">Register</p>
-            <h2>New Account</h2>
-          </div>
-          <span className="status-chip status-warning">Public Signup</span>
+      <section className="auth-card auth-form-card auth-form-register">
+        <div className="auth-form-header">
+          <h2>Create Your Account</h2>
+          <p>Complete your profile to get started</p>
         </div>
 
-        <p className="auth-note">Fill in the details to create a secure user profile.</p>
-
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="setting-item">
-            <span>Full Name</span>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="name">Full Name</label>
+            <input
+              id="name"
+              className="input"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
 
-          <label className="setting-item">
-            <span>Email</span>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="email">Work Email</label>
+            <input
+              id="email"
+              className="input"
+              type="email"
+              placeholder="your@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-          <label className="setting-item">
-            <span>Password</span>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <div className="input-wrapper">
+              <input
+                id="password"
+                className="input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Min. 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="input-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
 
-          <label className="setting-item">
-            <span>Confirm Password</span>
-            <input className="input" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirm Password</label>
+            <div className="input-wrapper">
+              <input
+                id="confirmPassword"
+                className="input"
+                type={showConfirm ? 'text' : 'password'}
+                placeholder="Repeat password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="input-toggle"
+                onClick={() => setShowConfirm(!showConfirm)}
+                tabIndex={-1}
+              >
+                {showConfirm ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
 
-          <label className="setting-item">
-            <span>Role</span>
-            <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+          <div className="form-group">
+            <label htmlFor="role">Initial Role</label>
+            <select
+              id="role"
+              className="input"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
               {roleOptions.map((option) => (
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
-          </label>
+          </div>
 
-          {error ? <div className="error-box">{error}</div> : null}
+          {error && (
+            <div className="alert alert-error">
+              <span>{error}</span>
+            </div>
+          )}
 
-          <button className="btn-primary auth-submit" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Register'}
+          <button
+            className="btn-auth btn-auth-primary"
+            disabled={loading}
+            type="submit"
+          >
+            {loading ? (
+              <>
+                <span className="spinner"></span>
+                Creating Account...
+              </>
+            ) : (
+              'Create Account'
+            )}
           </button>
         </form>
 
-        <div className="auth-footer-link">
+        <div className="auth-form-divider">
           <span>Already have an account?</span>
-          <Link to="/login">Back to login</Link>
         </div>
+
+        <Link to="/login" className="btn-auth btn-auth-secondary">
+          Sign In
+        </Link>
+
+        <p className="auth-form-footer">Your data is encrypted and secure. Privacy first, always.</p>
       </section>
     </main>
   );

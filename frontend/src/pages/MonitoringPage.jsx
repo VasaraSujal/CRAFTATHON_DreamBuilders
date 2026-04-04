@@ -8,11 +8,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useAppData } from '../context/AppDataContext.jsx';
-
-function rowStatus(status) {
-  if (status === 'Anomaly') return 'row-danger';
-  return 'row-safe';
-}
+import { getStatusRowClass, getThreatCategory } from '../utils/trafficDisplay.js';
 
 export default function MonitoringPage() {
   const { liveTraffic, loading, error, refreshData, isTrackingLive, setIsTrackingLive } = useAppData();
@@ -42,7 +38,7 @@ export default function MonitoringPage() {
           </div>
           {latestSignal ? (
             <div style={{ fontSize: 12, color: 'var(--txt-dim)', marginTop: 4 }}>
-              Availability {latestSignal.signalAvailability ?? '-'}% | Integrity {latestSignal.signalIntegrity ?? '-'}% | Threat {latestSignal.threatCategory || 'None'}
+              Availability {latestSignal.signalAvailability ?? '-'}% | Integrity {latestSignal.signalIntegrity ?? '-'}% | Threat {getThreatCategory(latestSignal)}
             </div>
           ) : null}
         </div>
@@ -107,8 +103,8 @@ export default function MonitoringPage() {
                   <td>{item.protocol}</td>
                   <td>{item.packetSize}</td>
                   <td>{new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour12: false })}</td>
-                  <td className={rowStatus(item.status)}>{item.status}</td>
-                  <td>{item.threatCategory || 'None'}</td>
+                  <td className={getStatusRowClass(item.status)}>{item.status}</td>
+                  <td>{getThreatCategory(item)}</td>
                   <td>{item.signalAvailability ?? '-'}</td>
                   <td>{item.signalIntegrity ?? '-'}</td>
                 </tr>
