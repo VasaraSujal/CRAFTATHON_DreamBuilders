@@ -26,6 +26,39 @@ const userSchema = mongoose.Schema({
             message: 'Invalid role. Must be Admin, Analyst, or Monitor.'
         }
     },
+    accountStatus: {
+        type: String,
+        enum: ['pending', 'active', 'rejected'],
+        default: 'pending',
+        index: true,
+    },
+    approvedAt: {
+        type: Date,
+        default: null,
+    },
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+    },
+    mfaEnabled: {
+        type: Boolean,
+        default: false,
+    },
+    mfaSecret: {
+        type: String,
+        default: '',
+        select: false,
+    },
+    mfaTempSecret: {
+        type: String,
+        default: '',
+        select: false,
+    },
+    mfaLastUsedAt: {
+        type: Date,
+        default: null,
+    },
 }, {
     timestamps: true,
 });
