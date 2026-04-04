@@ -81,17 +81,23 @@ const calculateSecuritySignals = (trafficData, status, attackType) => {
     const signalAvailability = clamp(100 - (jammingRisk * 0.65 + freqScore * 0.15 + anomalyPenalty));
     const signalIntegrity = clamp(100 - (spoofingRisk * 0.55 + intrusionRisk * 0.3 + anomalyPenalty));
 
-    let threatCategory = 'None';
+    let threatCategory = 'Intrusion';
     const activeThreats = [jammingRisk >= 65, spoofingRisk >= 65, intrusionRisk >= 65].filter(Boolean).length;
+    const topRisk = Math.max(jammingRisk, spoofingRisk, intrusionRisk);
 
-    if (activeThreats > 1) {
+    if (activeThreats > 1 && topRisk >= 65) {
         threatCategory = 'Mixed';
-    } else if (jammingRisk >= spoofingRisk && jammingRisk >= intrusionRisk && jammingRisk >= 60) {
+    } else if (jammingRisk >= spoofingRisk && jammingRisk >= intrusionRisk) {
         threatCategory = 'Jamming';
-    } else if (spoofingRisk >= intrusionRisk && spoofingRisk >= 60) {
+    } else if (spoofingRisk >= intrusionRisk) {
         threatCategory = 'Spoofing';
-    } else if (intrusionRisk >= 60) {
-        threatCategory = 'Intrusion';
+    }
+
+    // Keep threat category aligned with explicit ML attack labels when available.
+    if (attackType !== 'None') {
+        if (attackType === 'Spoofing') threatCategory = 'Spoofing';
+        else if (attackType === 'Intrusion') threatCategory = 'Intrusion';
+        else if (attackType === 'DDoS') threatCategory = 'Jamming';
     }
 
     return {
@@ -132,7 +138,20 @@ const processTraffic = async (trafficData, options = {}) => {
             score = prediction.score;
         }
 
-        const { status, attackType } = prediction;
+        let { status, attackType } = prediction;
+
+        // Allow feed-level balancing so the live stream includes benign traffic too.
+        if (options.forceStatus === 'Normal') {
+            status = 'Normal';
+            attackType = 'None';
+        }
+
+        if (options.forceStatus === 'Anomaly' && status !== 'Anomaly') {
+            status = 'Anomaly';
+            if (!attackType || attackType === 'None') {
+                attackType = 'Spoofing';
+            }
+        }
         const securitySignals = calculateSecuritySignals(normalized, status, attackType);
 
         const severity = getSeverity(status, attackType);
@@ -183,7 +202,7 @@ const processTraffic = async (trafficData, options = {}) => {
         if (shouldAlert && ['Medium', 'High', 'Critical'].includes(severity)) {
             await Alert.create({
                 logId: log._id,
-                message: `Alert: ${securitySignals.threatCategory !== 'None' ? securitySignals.threatCategory : attackType} risk from ${normalized.source} to ${normalized.destination}`,
+                message: `Alert: ${securitySignals.threatCategory} risk from ${normalized.source} to ${normalized.destination}`,
                 severity,
             });
         }
