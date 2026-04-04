@@ -1086,6 +1086,33 @@ tbody tr {
   border-radius: 10px;
 }
 
+.alert-info {
+  border: 1px solid #3b6f55;
+  background: #1f312b;
+  color: #b9e8d4;
+}
+
+.pending-badge {
+  background: color-mix(in srgb, var(--warning) 18%, var(--bg-card));
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--line));
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.pending-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.pending-actions .btn-primary,
+.pending-actions .btn-danger {
+  min-width: 90px;
+}
+
 .notif-stack {
   position: fixed;
   bottom: 14px;
