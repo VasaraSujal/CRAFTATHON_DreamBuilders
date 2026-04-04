@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import {
   fetchAlerts,
   fetchLiveTraffic,
+  fetchTraffic,
   fetchSignalStatus,
   fetchStats,
   simulateTraffic,
@@ -163,25 +164,25 @@ export function AppDataProvider({ children }) {
     }
 
     try {
-      const [liveRow, alertRows, statsRows, signalRows] = await Promise.all([
+      const [liveRow, alertRows, statsRows, signalRows, historyRows] = await Promise.all([
         fetchLiveTraffic(),
         fetchAlerts(),
         fetchStats(),
         fetchSignalStatus(),
+        fetchTraffic({ limit: 'all' }),
       ]);
 
       setError('');
       setRawAlerts(alertRows || []);
       setStatsApi(statsRows || null);
       setSignalStatusApi(signalRows || null);
+      const fullHistory = historyRows || [];
+      setLogs(fullHistory);
+      persistLocalTraffic(fullHistory.slice(0, 200));
+      setTrafficSeries(rebuildSeries(fullHistory.slice(0, 300)));
 
       if (liveRow && liveRow._id !== lastLiveIdRef.current) {
         lastLiveIdRef.current = liveRow._id;
-
-        const nextLocalRows = [liveRow, ...liveTrafficRef.current].slice(0, 200);
-        persistLocalTraffic(nextLocalRows);
-        setLogs(nextLocalRows);
-        setTrafficSeries(rebuildSeries(nextLocalRows));
 
         if (liveRow.status === 'Anomaly') {
           const severity = liveRow.severity || 'Medium';
@@ -193,9 +194,6 @@ export function AppDataProvider({ children }) {
           ].slice(0, 10));
           pushNotification(message, severity);
         }
-      } else {
-        setLogs(liveTrafficRef.current);
-        setTrafficSeries(rebuildSeries(liveTrafficRef.current));
       }
 
       if ((alertRows || []).length > 0 && alertRows[0]._id !== lastAlertIdRef.current) {
