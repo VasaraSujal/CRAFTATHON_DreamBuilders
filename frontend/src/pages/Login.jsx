@@ -7,6 +7,7 @@ export default function Login() {
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -29,61 +30,106 @@ export default function Login() {
       <div className="auth-grid-bg" />
 
       <section className="auth-card auth-hero">
-        <p className="sidebar-kicker">Secure Operations</p>
+        <div className="auth-hero-badge">SECURE OPERATIONS</div>
         <h1>Communication Monitoring System</h1>
         <p className="auth-copy">
-          Real-time threat monitoring, anomaly detection, and live network visibility in one command console.
+          Enterprise-grade threat detection and real-time network intelligence. Monitor anomalies, analyze patterns, and respond to threats with precision.
         </p>
 
         <div className="auth-hero-stats">
-          <div>
-            <strong>Live Traffic</strong>
-            <span>Backend driven</span>
+          <div className="stat-card">
+            <strong>Real-Time Analytics</strong>
+            <span>Live traffic monitoring</span>
           </div>
-          <div>
-            <strong>Threat Alerts</strong>
-            <span>Critical / High / Medium</span>
+          <div className="stat-card">
+            <strong>Threat Detection</strong>
+            <span>ML-powered anomalies</span>
           </div>
-          <div>
-            <strong>Network Graph</strong>
-            <span>MongoDB powered</span>
+          <div className="stat-card">
+            <strong>Network Visibility</strong>
+            <span>Full packet inspection</span>
           </div>
+        </div>
+
+        <div className="auth-hero-footer">
+          <p className="auth-footer-text">Trusted by security teams worldwide</p>
         </div>
       </section>
 
-      <section className="auth-card auth-form-card">
-        <div className="auth-header-row">
-          <div>
-            <p className="eyebrow">Sign In</p>
-            <h2>Access Dashboard</h2>
-          </div>
-          <span className="status-chip status-normal">Secure Login</span>
+      <section className="auth-card auth-form-card auth-form-login">
+        <div className="auth-form-header">
+          <h2>Welcome Back</h2>
+          <p>Enter your credentials to access the monitoring dashboard</p>
         </div>
 
-        <p className="auth-note">Use your authorized account to continue.</p>
-
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="setting-item">
-            <span>Email</span>
-            <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="email">Email Address</label>
+            <input
+              id="email"
+              className="input"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-          <label className="setting-item">
-            <span>Password</span>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </label>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <div className="input-wrapper">
+              <input
+                id="password"
+                className="input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="input-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
 
-          {error ? <div className="error-box">{error}</div> : null}
+          {error && (
+            <div className="alert alert-error">
+              <span>{error}</span>
+            </div>
+          )}
 
-          <button className="btn-primary auth-submit" disabled={loading}>
-            {loading ? 'Authenticating...' : 'Login'}
+          <button
+            className="btn-auth btn-auth-primary"
+            disabled={loading}
+            type="submit"
+          >
+            {loading ? (
+              <>
+                <span className="spinner"></span>
+                Authenticating...
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
 
-        <div className="auth-footer-link">
+        <div className="auth-form-divider">
           <span>New user?</span>
-          <Link to="/register">Create an account</Link>
         </div>
+
+        <Link to="/register" className="btn-auth btn-auth-secondary">
+          Create Account
+        </Link>
+
+        <p className="auth-form-footer">Secure server • AES-256 encrypted • Multi-factor ready</p>
       </section>
     </main>
   );
