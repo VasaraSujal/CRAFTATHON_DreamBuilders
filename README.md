@@ -1,9 +1,31 @@
-# CRAFTATHON DreamBuilders
+# Military Communication Monitoring System
 
-A full-stack secure communication monitoring platform for defense-style traffic observability, anomaly detection, threat categorization, role-based operations, and audit-oriented log analysis.
+A full-stack platform for monitoring military communication metadata, detecting unusual patterns, and supporting role-based security operations through clear dashboards and alerts.
+
+## Problem Statement
+
+Military and defense communication networks generate large volumes of operational traffic metadata every second. Teams need to quickly detect suspicious communication behavior, identify potential threats, and respond without exposing sensitive message content.
+
+Traditional monitoring tools are often either too generic, too noisy, or not designed for role-based defense workflows. This creates delayed response, inconsistent visibility across teams, and weak audit trails during incident investigation.
+
+This project addresses that gap by providing a secure, role-aware monitoring system that analyzes communication patterns in real time, highlights anomalies, classifies likely attack behavior, and preserves auditable records for operational review.
+
+
+## Quick Visual Snapshot
+
+```mermaid
+pie showData
+    title Monitoring Focus Areas
+    "Real-time Traffic Monitoring" : 35
+    "Anomaly Detection" : 30
+    "Alert and Severity Response" : 20
+    "Audit and Investigation Logs" : 15
+```
 
 ## Table of Contents
 
+- [Problem Statement](#problem-statement)
+- [Quick Visual Snapshot](#quick-visual-snapshot)
 - [Project Overview](#project-overview)
 - [Key Outcomes](#key-outcomes)
 - [Unique Value Proposition](#unique-value-proposition)
