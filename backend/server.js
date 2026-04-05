@@ -15,11 +15,10 @@ if (!process.env.JWT_SECRET) {
 }
 
 if (!process.env.JWT_REFRESH_SECRET) {
-    if (process.env.NODE_ENV === 'production') {
-        console.error('JWT_REFRESH_SECRET is required in production');
-        process.exit(1);
-    }
     process.env.JWT_REFRESH_SECRET = `${process.env.JWT_SECRET || 'supersecretkey'}-refresh`;
+    if (process.env.NODE_ENV === 'production') {
+        console.warn('JWT_REFRESH_SECRET not set in production. Using derived fallback from JWT_SECRET. Set JWT_REFRESH_SECRET explicitly for stronger security.');
+    }
 }
 
 if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_IP_ALLOWLIST) {
@@ -30,7 +29,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_IP_ALLOWLIST) {
 connectDB();
 
 const PORT = process.env.PORT || 5000;
-const ioOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
+const ioOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'https://militarycommunicationsystem.netlify.app')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
