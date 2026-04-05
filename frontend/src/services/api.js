@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://craftathon-dreambuilders.onrender.com';
+const normalizeBaseUrl = (value) => {
+  const trimmed = String(value || '').trim().replace(/\/+$/, '');
+
+  if (trimmed.endsWith('/api')) {
+    return trimmed.slice(0, -4);
+  }
+
+  return trimmed;
+};
+
+const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_URL || 'https://craftathon-dreambuilders.onrender.com');
 const STORAGE_KEY = 'secure-comm-user';
 
 const api = axios.create({
