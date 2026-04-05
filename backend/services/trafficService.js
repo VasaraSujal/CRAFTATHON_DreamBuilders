@@ -4,6 +4,7 @@ const TrafficLog = require('../models/TrafficLog');
 const Alert = require('../models/Alert');
 
 const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://craftathon-dreambuilders-1.onrender.com';
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)));
 
@@ -121,7 +122,7 @@ const processTraffic = async (trafficData, options = {}) => {
 
         // 1. Send data to Python ML API for prediction
         try {
-            const response = await axios.post(`${process.env.PYTHON_API_URL}/predict`, {
+            const response = await axios.post(`${PYTHON_API_URL}/predict`, {
                 packetSize: normalized.packetSize,
                 duration: normalized.duration,
                 frequency: normalized.frequency,
