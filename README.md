@@ -376,7 +376,7 @@ classDiagram
 
 ## API Reference
 
-Base URL: `http://localhost:5000`
+Base URL: `https://craftathon-dreambuilders.onrender.com`
 
 ### Authentication and Users
 
@@ -510,7 +510,7 @@ npm install
 node server.js
 ```
 
-Backend runs on: `http://localhost:5000`
+Backend runs on: `https://craftathon-dreambuilders.onrender.com`
 
 ## 2) Start ML Service
 
@@ -520,7 +520,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-ML service runs on: `http://localhost:5001`
+ML service runs on: `https://craftathon-dreambuilders-1.onrender.com`
 
 ## 3) Start Frontend
 
@@ -530,7 +530,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs on: `http://localhost:5173`
+Frontend runs on: `https://militarycommunicationsystem.netlify.app`
 
 ## Environment Variables
 
@@ -542,14 +542,14 @@ Frontend runs on: `http://localhost:5173`
 | NODE_ENV | No | `development` | Runtime mode |
 | MONGO_URI | Yes | `mongodb://127.0.0.1:27017/secure_military` | Mongo connection |
 | JWT_SECRET | Yes | `supersecretkey` | JWT signing key |
-| PYTHON_API_URL | Yes | `http://127.0.0.1:5001` | ML inference endpoint |
+| PYTHON_API_URL | Yes | `https://craftathon-dreambuilders-1.onrender.com` | ML inference endpoint |
 | AUDIT_SECRET | Recommended | `your-audit-secret` | HMAC signature seed |
 
 ### Frontend `.env`
 
 | Variable | Required | Example | Purpose |
 |---|---|---|---|
-| VITE_API_URL | Yes | `http://localhost:5000` | Backend API base URL |
+| VITE_API_URL | Yes | `https://craftathon-dreambuilders.onrender.com` | Backend API base URL |
 
 ## Operational Workflow
 
