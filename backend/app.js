@@ -12,7 +12,7 @@ dotenv.config();
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'https://militarycommunicationsystem.netlify.app')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
