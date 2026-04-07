@@ -17,7 +17,32 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+const allowedOriginSuffixes = (process.env.CORS_ALLOWED_SUFFIXES || '.netlify.app,.vercel.app')
+    .split(',')
+    .map((suffix) => suffix.trim().toLowerCase())
+    .filter(Boolean);
+
+const extractHost = (origin = '') => {
+    try {
+        return new URL(origin).hostname.toLowerCase();
+    } catch {
+        return '';
+    }
+};
+
 const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+const isAllowedBySuffix = (origin) => {
+    const host = extractHost(origin);
+    if (!host) return false;
+    return allowedOriginSuffixes.some((suffix) => host === suffix.replace(/^\./, '') || host.endsWith(suffix));
+};
+
+const isAllowedOrigin = (origin) => {
+    if (!origin) return true;
+    if (allowedOrigins.includes(origin)) return true;
+    if (!isProduction && isLocalDevOrigin(origin)) return true;
+    return isAllowedBySuffix(origin);
+};
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -38,7 +63,7 @@ app.use((req, res, next) => {
 });
 app.use(cors({
     origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin) || (!isProduction && isLocalDevOrigin(origin))) {
+        if (isAllowedOrigin(origin)) {
             return callback(null, true);
         }
         return callback(new Error('CORS blocked for this origin'));
