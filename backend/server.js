@@ -33,7 +33,29 @@ const ioOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'https
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+const ioAllowedSuffixes = (process.env.CORS_ALLOWED_SUFFIXES || '.netlify.app,.vercel.app')
+    .split(',')
+    .map((suffix) => suffix.trim().toLowerCase())
+    .filter(Boolean);
 const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+const extractHost = (origin = '') => {
+    try {
+        return new URL(origin).hostname.toLowerCase();
+    } catch {
+        return '';
+    }
+};
+const isAllowedBySuffix = (origin) => {
+    const host = extractHost(origin);
+    if (!host) return false;
+    return ioAllowedSuffixes.some((suffix) => host === suffix.replace(/^\./, '') || host.endsWith(suffix));
+};
+const isAllowedIoOrigin = (origin) => {
+    if (!origin) return true;
+    if (ioOrigins.includes(origin)) return true;
+    if (process.env.NODE_ENV !== 'production' && isLocalDevOrigin(origin)) return true;
+    return isAllowedBySuffix(origin);
+};
 
 const server = app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
@@ -43,7 +65,7 @@ const server = app.listen(PORT, () => {
 const io = new Server(server, {
     cors: {
         origin(origin, callback) {
-            if (!origin || ioOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && isLocalDevOrigin(origin))) {
+            if (isAllowedIoOrigin(origin)) {
                 return callback(null, true);
             }
 
@@ -56,7 +78,7 @@ const io = new Server(server, {
 
 io.on('connection', (socket) => {
     const origin = socket.handshake.headers.origin;
-    if (origin && !ioOrigins.includes(origin) && !(process.env.NODE_ENV !== 'production' && isLocalDevOrigin(origin))) {
+    if (!isAllowedIoOrigin(origin)) {
         socket.disconnect(true);
         return;
     }
