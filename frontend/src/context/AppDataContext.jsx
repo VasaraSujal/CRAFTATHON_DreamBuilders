@@ -255,7 +255,14 @@ export function AppDataProvider({ children }) {
         pushNotification(latest.message, latest.severity || 'Medium');
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Unable to fetch real-time data from backend');
+      const backendMessage = err?.response?.data?.message;
+      const networkIssue = !err?.response;
+      setError(
+        backendMessage
+          || (networkIssue
+            ? 'Unable to reach backend API. Check VITE_API_URL and backend CORS origin settings.'
+            : 'Unable to fetch real-time data from backend')
+      );
     } finally {
       setLoading(false);
     }
