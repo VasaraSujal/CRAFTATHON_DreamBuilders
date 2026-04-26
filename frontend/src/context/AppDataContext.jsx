@@ -35,7 +35,7 @@ function severityRank(level) {
 }
 
 export function AppDataProvider({ children }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const lastAlertIdRef = useRef(null);
   const lastLiveIdRef = useRef(null);
   const liveTrafficRef = useRef([]);
@@ -256,7 +256,15 @@ export function AppDataProvider({ children }) {
       }
     } catch (err) {
       const backendMessage = err?.response?.data?.message;
+      const statusCode = err?.response?.status;
       const networkIssue = !err?.response;
+
+      if (statusCode === 401) {
+        await logout();
+        setError('Session expired. Please log in again.');
+        return;
+      }
+
       setError(
         backendMessage
           || (networkIssue
